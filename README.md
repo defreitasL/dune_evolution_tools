@@ -51,7 +51,7 @@ pip install https://github.com/defreitasL/dune_evolution_tools.git
 ## 📐 Model
 This section documents the equations **as implemented in the package**, and how they relate to the reference papers.
 
-### 1) Geometry & state variables (Larson 2004)
+### 1) Geometry & state variables (Larson et al. 2004)
 The model evolves the **toe elevation** $(z_0(t))$ and uses a dune “height above toe”:
 
 $$
@@ -66,7 +66,7 @@ $$
 
 This is the same wedge-volume idea used by **Larson et al. (2004)** (Eq. 13), but in this package we allow both **$z_0(t)$** and (optionally) **$D_s(t)$** to evolve.
 
-### 2) Effective slope / dune-face repose (Larson 2004 + DRT convention)
+### 2) Effective slope / dune-face repose (Larson et al. 2004 + DRT convention)
 The dune-face slope is constrained by an **angle of repose** provided by the user:
 - `alpha_rep_deg` is the repose angle **with respect to the horizontal** (DRT convention)
 
@@ -108,7 +108,7 @@ $$
 }
 $$
 
-where `$s_min$` is a small numerical safeguard.
+where $s_min$ is a small numerical safeguard.
 
 #### Toe + crest (optional coupled system)
 If crest lowering is enabled, the model keeps the wedge mass balance consistent:
@@ -145,33 +145,36 @@ $$
 
 This is consistent with the Larson-type impact framework (Larson et al., 2004) and is used together with the overwash partitioning described below (Larson et al., 2016).
 
-### 6) Overwash partitioning (Larson 2016)
+### 6) Overwash partitioning (Larson et al. 2016)
 When $\eta > D_s$, the model partitions the total flux $q_D$ into:
 - $q_S$: seaward component
 - $q_L$: landward (overwash) component
 
-Using the Larson (2016) CS-model style partitioning:
+Using the Larson et al. (2016) CS-model style partitioning:
 
 $$
 q_S=\frac{q_D}{1+\alpha},\qquad q_L=q_D-q_S
 $$
+
 with $\alpha$ increasing with exceedance above the crest; in the code:
 
 $$
 \alpha=\frac{1}{A}\left(\frac{\eta-z_0}{D_s-z_0}-1\right),\quad \alpha\ge 0
 $$
+
 where `A_overwash` is the scaling parameter $A$.
 
-### 7) Transport coefficient $C_s$ (Larson 2004, Eq. 37)
+### 7) Transport coefficient $C_s$ (Larson et al. 2004, Eq. 37)
 Two options are available:
 - **Constant**: `Cs_mode="constant"` → uses `Cs`
-- **Larson (2004) Eq. 37**: `Cs_mode="larson2004_eq37"`:
+- **Larson et al. (2004) Eq. 37**: `Cs_mode="larson2004_eq37"`:
 
 $$
 C_s = A\,\exp\left(-b\,\frac{Hrms_0}{D_{50}}\right)
 $$
+
 Default coefficients are provided in `params.py`.  
-When using Eq. 37, you must supply a wave height series for `Hrms0` (either directly as RMS, or as `Hs` with `H0_is_Hs=True` so the model converts `Hrms = Hs/√2`).
+When using Eq. 37, you must supply a wave height series for `Hrms0` (either directly as RMS, or as `Hs` with `H0_is_Hs=True`, a Rayleigh distribution is assumed so the model converts `Hrms = Hs/√2`).
 
 ### 8) Optional storm-only crest lowering (no recovery)
 If enabled (`crest_erosion=True`), the crest can lower during overwash:
@@ -181,6 +184,7 @@ $$
 \frac{dD_s}{dt}=-\frac{k_{\mathrm{crest}}}{W_{\mathrm{crest}}}\;q_L
 }
 $$
+
 - `crest_width_m` = $W_{\mathrm{crest}}$: **effective cross-shore width** of the active crest-lowering zone
 - `k_crest` = fraction of $q_L$ that produces crest lowering (0–1)
 
@@ -192,6 +196,7 @@ If `use_profile_mesh=True`, the model reconstructs $z(x,t)$ on a 1D grid and app
 $$
 |dz/dx|\le \tan(\alpha_{\mathrm{rep}})
 $$
+
 This is conceptually similar to the DRT-style approach (Cohn & Anderson, 2025), but implemented as a fast “instantaneous adjustment” step after each time update.
 
 ---
@@ -236,21 +241,20 @@ res = model.simulate_from_twl(time_s=time_s, TWL=TWL, T=Tp, H0_for_Cs=H0)
 From the repo root:
 
 ```bash
-python examples/example_Stockdon.py
-python examples/example_runnup_series.py
-python examples/example_twl_storm_run.py
-python examples/example_storm_run.py
+python examples/example_waves.py
+python examples/example_runnup.py
+python examples/example_twl.py
 ```
 
 What each example demonstrates:
 
-- `examples/example_Stockdon.py`  
+- `examples/example_waves.py`  
   🌊 Waves → Stockdon runup, **mesh + avalanching**, optional **crest lowering**
 
-- `examples/example_runnup_series.py`  
+- `examples/example_runnup.py`  
   📈 Runup-driven simulation with **user-provided** `Ru(t)` and **input** `Hrms(t)` for `Cs(t)` (Eq. 37)
 
-- `examples/example_twl_storm_run.py`  
+- `examples/example_twl.py`  
   🌡️ **TWL-driven** simulation (the model receives only `TWL(t)`), plus dune-width plots
 
 - `examples/example_storm_run.py`  
