@@ -135,12 +135,12 @@ The implemented flux is **piecewise** to represent collision vs overwash behavio
 - If $z_0 < \eta \le D_s$ (collision):
 
 $$
-q_D = 4\,C_s\,\frac{(\eta-z_0)^2}{T}
+q_D = 4 C_s \frac{(\eta-z_0)^2}{T}
 $$
 - If $\eta > D_s$ (overwash regime):
 
 $$
-q_D = 4\,C_s\,\frac{(\eta-z_0)\,(D_s-z_0)}{T}
+q_D = 4 C_s \frac{(\eta-z_0)(D_s-z_0)}{T}
 $$
 
 This is consistent with the Larson-type impact framework (Larson et al., 2004) and is used together with the overwash partitioning described below (Larson et al., 2016).
@@ -170,7 +170,7 @@ Two options are available:
 - **Larson et al. (2004) Eq. 37**: `Cs_mode="larson2004_eq37"`:
 
 $$
-C_s = A\,\exp\left(-b\,\frac{Hrms_0}{D_{50}}\right)
+C_s = A \exp\left(-b \frac{Hrms_0}{D_{50}}\right)
 $$
 
 Default coefficients are provided in `params.py`.  
@@ -181,7 +181,7 @@ If enabled (`crest_erosion=True`), the crest can lower during overwash:
 
 $$
 \boxed{
-\frac{dD_s}{dt}=-\frac{k_{\mathrm{crest}}}{W_{\mathrm{crest}}}\;q_L
+\frac{dD_s}{dt}=-\frac{k_{\mathrm{crest}}}{W_{\mathrm{crest}}} q_L
 }
 $$
 
