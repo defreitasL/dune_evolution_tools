@@ -72,7 +72,7 @@ The dune-face slope is constrained by an **angle of repose** provided by the use
 The corresponding tangent is:
 
 $$
-	an(\beta_D)=\tan(\alpha_{\mathrm{rep}})
+	\tan(\beta_D)=\tan(\alpha_{\mathrm{rep}})
 $$
 
 We then compute an **effective slope** $(\tan(\beta_{\mathrm{eff}}))$ using the **slope substitution** idea (Larson et al., 2004; Eq. 21), which prevents unrealistically steep faces while preserving the wedge-volume closure.
