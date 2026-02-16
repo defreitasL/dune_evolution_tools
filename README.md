@@ -63,6 +63,7 @@ A wedge-type dune volume per unit alongshore length (m³/m = m²) is:
 $$
 V(t)=\frac{1}{2}\frac{s(t)^2}{\tan(\beta_{\mathrm{eff}})}
 $$
+
 This is the same wedge-volume idea used by **Larson et al. (2004)** (Eq. 13), but in this package we allow both **$z_0(t)$** and (optionally) **$D_s(t)$** to evolve.
 
 ### 2) Effective slope / dune-face repose (Larson 2004 + DRT convention)
@@ -83,6 +84,7 @@ The model is built around:
 $$
 \frac{dV}{dt} = -q_D
 $$
+
 where $q_D$ is the total erosion flux per unit alongshore length (units $m^3/(m\,s)=m^2/s$).
 
 Since:
@@ -90,6 +92,7 @@ Since:
 $$
 V=\frac{1}{2}\frac{(D_s-z_0)^2}{\tan(\beta_{\mathrm{eff}})}
 $$
+
 then:
 
 $$
@@ -104,7 +107,8 @@ $$
 \frac{dz_0}{dt} = q_D\frac{\tan(\beta_{\mathrm{eff}})}{\max(s,s_{\min})}
 }
 $$
-where `&s_min$` is a small numerical safeguard.
+
+where `$s_min$` is a small numerical safeguard.
 
 #### Toe + crest (optional coupled system)
 If crest lowering is enabled, the model keeps the wedge mass balance consistent:
@@ -120,7 +124,7 @@ Internally the core uses a single “effective water-level” time series $\eta(
 
 - **Runup mode**: $\eta(t)=Ru(t)$ (you provide runup)
 - **TWL mode**: $\eta(t)=TWL(t)$ (you provide total water level)
-- **Waves mode**: you provide `$H0(t)$, $T(t)$` and the package computes runup using **Stockdon et al. (2006)**
+- **Waves mode**: you provide `H0(t), T(t)` and the package computes runup using **Stockdon et al. (2006)**
 
 > ⚠️ Datum consistency: if you use `TWL(t)`, then `z0_init` and `Ds` must be in the **same vertical datum** as TWL.
 
