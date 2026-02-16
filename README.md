@@ -53,14 +53,14 @@ This section documents the equations **as implemented in the package**, and how 
 
 ### 1) Geometry & state variables (Larson 2004)
 The model evolves the **toe elevation** \(z_0(t)\) and uses a dune “height above toe”:
-\[
+$$
 s(t)=D_s(t)-z_0(t)
-\]
+$$
 
 A wedge-type dune volume per unit alongshore length (m³/m = m²) is:
-\[
+$$
 V(t)=\frac{1}{2}\frac{s(t)^2}{\tan(\beta_{\mathrm{eff}})}
-\]
+$$
 This is the same wedge-volume idea used by **Larson et al. (2004)** (Eq. 13), but in this package we allow both **\(z_0(t)\)** and (optionally) **\(D_s(t)\)** to evolve.
 
 ### 2) Effective slope / dune-face repose (Larson 2004 + DRT convention)
@@ -68,44 +68,44 @@ The dune-face slope is constrained by an **angle of repose** provided by the use
 - `alpha_rep_deg` is the repose angle **with respect to the horizontal** (DRT convention)
 
 The corresponding tangent is:
-\[
-\tan(\beta_D)=\tan(\alpha_{\mathrm{rep}})
-\]
+$$
+	an(\beta_D)=\tan(\alpha_{\mathrm{rep}})
+$$
 
 We then compute an **effective slope** \(\tan(\beta_{\mathrm{eff}})\) using the **slope substitution** idea (Larson et al., 2004; Eq. 21), which prevents unrealistically steep faces while preserving the wedge-volume closure.
 
 ### 3) Mass balance closure (core)
 The model is built around:
-\[
+$$
 \frac{dV}{dt} = -q_D
-\]
+$$
 where \(q_D\) is the total erosion flux per unit alongshore length (units \(m^3/(m\,s)=m^2/s\)).
 
 Since:
-\[
+$$
 V=\frac{1}{2}\frac{(D_s-z_0)^2}{\tan(\beta_{\mathrm{eff}})}
-\]
+$$
 then:
-\[
+$$
 \frac{dV}{dt}=\frac{s}{\tan(\beta_{\mathrm{eff}})}\left(\frac{dD_s}{dt}-\frac{dz_0}{dt}\right)
-\]
+$$
 
 #### Toe ODE (fixed crest)
 If the crest is held constant (\(dD_s/dt=0\)):
-\[
+$$
 \boxed{
 \frac{dz_0}{dt} = q_D\frac{\tan(\beta_{\mathrm{eff}})}{\max(s,s_{\min})}
 }
-\]
+$$
 where `s_min` is a small numerical safeguard.
 
 #### Toe + crest (optional coupled system)
 If crest lowering is enabled, the model keeps the wedge mass balance consistent:
-\[
+$$
 \boxed{
 \frac{dz_0}{dt} = \frac{dD_s}{dt} + q_D\frac{\tan(\beta_{\mathrm{eff}})}{\max(s,s_{\min})}
 }
-\]
+$$
 
 ### 4) Forcing: Runup vs TWL vs waves (Stockdon)
 Internally the core uses a single “effective water-level” time series \(\eta(t)\):
@@ -121,13 +121,13 @@ The implemented flux is **piecewise** to represent collision vs overwash behavio
 
 - If \(\eta \le z_0\): no collision → \(q_D=0\)
 - If \(z_0 < \eta \le D_s\) (collision):
-\[
+$$
 q_D = 4\,C_s\,\frac{(\eta-z_0)^2}{T}
-\]
+$$
 - If \(\eta > D_s\) (overwash regime):
-\[
+$$
 q_D = 4\,C_s\,\frac{(\eta-z_0)\,(D_s-z_0)}{T}
-\]
+$$
 
 This is consistent with the Larson-type impact framework (Larson et al., 2004) and is used together with the overwash partitioning described below (Larson et al., 2016).
 
@@ -137,32 +137,32 @@ When \(\eta > D_s\), the model partitions the total flux \(q_D\) into:
 - \(q_L\): landward (overwash) component
 
 Using the Larson (2016) CS-model style partitioning:
-\[
+$$
 q_S=\frac{q_D}{1+\alpha},\qquad q_L=q_D-q_S
-\]
+$$
 with \(\alpha\) increasing with exceedance above the crest; in the code:
-\[
+$$
 \alpha=\frac{1}{A}\left(\frac{\eta-z_0}{D_s-z_0}-1\right),\quad \alpha\ge 0
-\]
+$$
 where `A_overwash` is the scaling parameter \(A\).
 
 ### 7) Transport coefficient \(C_s\) (Larson 2004, Eq. 37)
 Two options are available:
 - **Constant**: `Cs_mode="constant"` → uses `Cs`
 - **Larson (2004) Eq. 37**: `Cs_mode="larson2004_eq37"`:
-\[
+$$
 C_s = A\,\exp\left(-b\,\frac{Hrms_0}{D_{50}}\right)
-\]
+$$
 Default coefficients are provided in `params.py`.  
 When using Eq. 37, you must supply a wave height series for `Hrms0` (either directly as RMS, or as `Hs` with `H0_is_Hs=True` so the model converts `Hrms = Hs/√2`).
 
 ### 8) Optional storm-only crest lowering (no recovery)
 If enabled (`crest_erosion=True`), the crest can lower during overwash:
-\[
+$$
 \boxed{
 \frac{dD_s}{dt}=-\frac{k_{\mathrm{crest}}}{W_{\mathrm{crest}}}\;q_L
 }
-\]
+$$
 - `crest_width_m` = \(W_{\mathrm{crest}}\): **effective cross-shore width** of the active crest-lowering zone
 - `k_crest` = fraction of \(q_L\) that produces crest lowering (0–1)
 
@@ -170,9 +170,9 @@ This is a **storm-only** mechanism and does not include post-storm recovery.
 
 ### 9) Optional profile mesh + instantaneous avalanching (Cohn 2025 inspiration)
 If `use_profile_mesh=True`, the model reconstructs \(z(x,t)\) on a 1D grid and applies an **instantaneous slope limiter** so that:
-\[
+$$
 |dz/dx|\le \tan(\alpha_{\mathrm{rep}})
-\]
+$$
 This is conceptually similar to the DRT-style approach (Cohn & Anderson, 2025), but implemented as a fast “instantaneous adjustment” step after each time update.
 
 ---
