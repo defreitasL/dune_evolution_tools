@@ -9,7 +9,7 @@ long_description = readme_path.read_text(encoding="utf-8") if readme_path.exists
 
 setup(
     name="dune_evolution_tools",
-    version="0.1.2",  # <-- update when you bump versions
+    version="0.1.3",  # <-- update when you bump versions
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
