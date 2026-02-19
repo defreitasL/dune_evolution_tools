@@ -235,7 +235,7 @@ def save_profile_evolution_gif(
 
         # update sand fill (re-create, robust and simple)
         sand.remove()
-        sand = ax.fill_between(x_i, z_i, fill_base_val, color="gold", alpha=0.35, zorder=1)
+        sand = ax.fill_between(x_i, z_i, fill_base_val, color="wheat", alpha=1, zorder=1)
 
         # update time text
         time_text.set_text(f"t = {time_s[ii]/3600.0:.2f} h")
