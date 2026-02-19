@@ -1,8 +1,10 @@
 """Lightweight plotting helpers (matplotlib only)."""
 from __future__ import annotations
-from typing import Dict, Optional
+from typing import Dict, Optional, Union, Literal, Tuple
+import os
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 from .model import DuneToeStormModel
 from .diagnostics import check_mass_closure
 
@@ -51,6 +53,230 @@ def plot_profiles_over_time(model: DuneToeStormModel, result: Dict[str, np.ndarr
     if savepath:
         fig.savefig(savepath, dpi=160)
     return fig
+
+
+
+def save_profile_evolution_gif(
+    model: DuneToeStormModel,
+    result: Dict[str, np.ndarray],
+    out_gif: str,
+    water_level: Union[Literal["auto"], str] = "auto",
+    every: int = 1,
+    fps: int = 12,
+    dpi: int = 140,
+    seaward_buffer_m: float = 50.0,
+    landward_crest_width_m: float = 30.0,
+    landward_back_slope_m: float = 40.0,
+    landward_back_buffer_m: float = 20.0,
+    z_back: float = 0.0,
+    tan_beta_back: float = -1.0,
+    fill_base: Union[Literal["auto"], float] = "auto",
+    xlim: Optional[Tuple[float, float]] = None,
+    ylim: Optional[Tuple[float, float]] = None,
+    title: str = "Dune profile evolution",
+):
+    """Create and save a GIF of the evolving dune/beach profile.
+
+    The animation shows:
+      - Water level (Ru or TWL): horizontal blue line
+      - Profile: black polyline
+      - Sand: yellow fill under the profile
+
+    Parameters
+    ----------
+    model : DuneToeStormModel
+        Model instance (used to reconstruct the profile if no mesh is stored).
+    result : dict
+        Output dictionary from `simulate_from_runup`, `simulate_from_twl`, or `simulate_from_waves`.
+        If keys ("x_prof", "z_prof") are present, the mesh profiles are used.
+        Otherwise, the profile is rebuilt from (z0, x0, Ds_ts, tan_beta_D).
+    out_gif : str
+        Path to the GIF file.
+    water_level : {"auto"} or str
+        Which series to plot as water level. If "auto", uses "TWL_used" if present,
+        else uses "Ru_used".
+        You may also pass an explicit key present in `result` (e.g. "Ru_used", "TWL_used").
+    every : int
+        Use one frame every `every` timesteps (e.g., every=5 reduces frames by 5×).
+    fps : int
+        Frames per second.
+    dpi : int
+        DPI for the rendered frames.
+    fill_base : {"auto"} or float
+        Baseline used for the yellow fill. If "auto", it is set below the minimum z
+        (and below the minimum water level).
+    xlim, ylim : tuple or None
+        Axis limits. If None, they are inferred from the data/geometry.
+
+    Notes
+    -----
+    This function uses matplotlib's PillowWriter. If you get an ImportError, install pillow:
+        pip install pillow
+    """
+    if every < 1:
+        raise ValueError("every must be >= 1")
+    time_s = np.asarray(result["time_s"], dtype=float)
+
+    # --- pick water-level series ---
+    if water_level == "auto":
+        if "TWL_used" in result:
+            wl_key = "TWL_used"
+        else:
+            wl_key = "Ru_used"
+    else:
+        wl_key = str(water_level)
+    if wl_key not in result:
+        raise KeyError(f"water_level={water_level!r} -> key {wl_key!r} not found in result")
+    wl = np.asarray(result[wl_key], dtype=float)
+
+    # --- profile source ---
+    use_mesh = ("x_prof" in result) and ("z_prof" in result)
+    if use_mesh:
+        x_mesh = np.asarray(result["x_prof"], dtype=float)
+        z_mesh = np.asarray(result["z_prof"], dtype=float)  # (time, x)
+        if z_mesh.shape[0] != time_s.size:
+            raise ValueError("z_prof must have shape (time, x)")
+    else:
+        z0 = np.asarray(result["z0"], dtype=float)
+        x0 = np.asarray(result["x0"], dtype=float)
+        Ds_ts = np.asarray(result.get("Ds_ts", np.full_like(z0, float(model.params.Ds))), dtype=float)
+        tan_beta_D = float(np.asarray(result.get("tan_beta_D", np.array([np.tan(np.deg2rad(34.0))])))[0])
+        tan_beta_f = float(model.params.tan_beta_f)
+
+    # --- axis limits ---
+    if xlim is None or ylim is None:
+        if use_mesh:
+            xmin = float(np.nanmin(x_mesh))
+            xmax = float(np.nanmax(x_mesh))
+            zmin = float(np.nanmin(z_mesh))
+            zmax = float(np.nanmax(z_mesh))
+        else:
+            # geometry-based bounds without building every polyline
+            tan_beta_f = float(model.params.tan_beta_f)
+            xmin = float(np.nanmin(x0 - z0 / tan_beta_f - seaward_buffer_m))
+            # landward end: toe + face width + crest + back slope + buffer
+            face_w = (Ds_ts - z0) / tan_beta_D
+            xmax = float(np.nanmax(x0 + face_w + landward_crest_width_m + landward_back_slope_m + landward_back_buffer_m))
+            # foreshore min elevation at the offshore buffer point:
+            zmin = float(-tan_beta_f * seaward_buffer_m)
+            zmin = min(zmin, float(z_back))
+            zmax = float(np.nanmax(Ds_ts))
+
+        zmin = min(zmin, float(np.nanmin(wl)))
+        zmax = max(zmax, float(np.nanmax(wl)))
+
+        if xlim is None:
+            xpad = 0.02 * (xmax - xmin) if xmax > xmin else 1.0
+            xlim = (xmin - xpad, xmax + xpad)
+        if ylim is None:
+            ypad = 0.08 * (zmax - zmin) if zmax > zmin else 1.0
+            ylim = (zmin - ypad, zmax + ypad)
+
+    # --- fill baseline ---
+    if fill_base == "auto":
+        fill_base_val = float(ylim[0])  # bottom of axis
+    else:
+        fill_base_val = float(fill_base)
+
+    # --- frame indices ---
+    idx = np.arange(0, time_s.size, every, dtype=int)
+    if idx.size < 2:
+        raise ValueError("Not enough frames after applying 'every'")
+
+    # Ensure output dir exists
+    out_gif = str(out_gif)
+    out_dir = os.path.dirname(out_gif)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+
+    # --- build figure ---
+    fig, ax = plt.subplots(figsize=(10.5, 4.2))
+    ax.set_xlim(*xlim)
+    ax.set_ylim(*ylim)
+    ax.set_xlabel("Cross-shore x (m)")
+    ax.set_ylabel("Elevation z (m)")
+    ax.set_title(title)
+
+    # placeholders
+    if use_mesh:
+        x0_frame = x_mesh
+        z0_frame = z_mesh[idx[0]]
+    else:
+        Ds0 = float(Ds_ts[idx[0]])
+        x0_frame, z0_frame = model.build_profile_xy(
+            float(z0[idx[0]]), float(x0[idx[0]]), Ds0,
+            float(model.params.tan_beta_f), tan_beta_D,
+            seaward_buffer_m=seaward_buffer_m,
+            landward_crest_width_m=landward_crest_width_m,
+            landward_back_slope_m=landward_back_slope_m,
+            landward_back_buffer_m=landward_back_buffer_m,
+            z_back=z_back,
+            tan_beta_back=tan_beta_back,
+        )
+
+    # Sand fill + profile + water level
+    sand = ax.fill_between(x0_frame, z0_frame, fill_base_val, color="gold", alpha=0.35, zorder=1)
+    prof_line, = ax.plot(x0_frame, z0_frame, color="black", linewidth=2.0, zorder=3)
+    wl_line, = ax.plot([xlim[0], xlim[1]], [wl[idx[0]], wl[idx[0]]], color="tab:blue", linewidth=2.0, zorder=2)
+
+    # Time label on the top (axes coordinates)
+    time_text = ax.text(
+        0.01, 1.02, "",
+        transform=ax.transAxes,
+        ha="left", va="bottom",
+        fontsize=11,
+    )
+
+    def _frame_profile(k: int):
+        ii = idx[k]
+        if use_mesh:
+            return x_mesh, z_mesh[ii]
+        Ds_i = float(Ds_ts[ii])
+        x_i, z_i = model.build_profile_xy(
+            float(z0[ii]), float(x0[ii]), Ds_i,
+            float(model.params.tan_beta_f), tan_beta_D,
+            seaward_buffer_m=seaward_buffer_m,
+            landward_crest_width_m=landward_crest_width_m,
+            landward_back_slope_m=landward_back_slope_m,
+            landward_back_buffer_m=landward_back_buffer_m,
+            z_back=z_back,
+            tan_beta_back=tan_beta_back,
+        )
+        return x_i, z_i
+
+    def update(k: int):
+        nonlocal sand
+        ii = idx[k]
+        x_i, z_i = _frame_profile(k)
+
+        # update profile line
+        prof_line.set_data(x_i, z_i)
+
+        # update water line
+        ywl = float(wl[ii])
+        wl_line.set_data([xlim[0], xlim[1]], [ywl, ywl])
+
+        # update sand fill (re-create, robust and simple)
+        sand.remove()
+        sand = ax.fill_between(x_i, z_i, fill_base_val, color="gold", alpha=0.35, zorder=1)
+
+        # update time text
+        time_text.set_text(f"t = {time_s[ii]/3600.0:.2f} h")
+
+        return prof_line, wl_line, sand, time_text
+
+    ani = animation.FuncAnimation(
+        fig,
+        update,
+        frames=idx.size,
+        interval=1000.0 / float(fps),
+        blit=False,
+    )
+
+    writer = animation.PillowWriter(fps=int(fps))
+    ani.save(out_gif, writer=writer, dpi=int(dpi))
+    plt.close(fig)
+    return out_gif
 
 
 def plot_positions(result: Dict[str, np.ndarray], savepath: Optional[str] = None):

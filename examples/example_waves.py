@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 
 from dune_evolution_tools import DuneToeStormParams, DuneToeStormModel
 from dune_evolution_tools.diagnostics import check_mass_closure
-from dune_evolution_tools.plotting import plot_profiles_over_time, plot_positions, plot_transports, plot_volume_timeseries
+from dune_evolution_tools.plotting import plot_profiles_over_time, plot_positions, plot_transports, plot_volume_timeseries, save_profile_evolution_gif
 
 def synthetic_storm(time_s: np.ndarray):
     t_h = time_s / 3600.0
@@ -62,7 +62,7 @@ def main():
         # storm-only crest lowering
         crest_mode="moving",
         crest_erosion=True,
-        crest_width_m=10.0, # Controls the intensity of storm-only crest lowering
+        crest_width_m=7.0, # Controls the intensity of storm-only crest lowering
     )
     model = DuneToeStormModel(params)
 
@@ -72,6 +72,17 @@ def main():
     plot_positions(res, savepath=os.path.join(out_dir, "positions_timeseries.png"))
     plot_transports(res, savepath=os.path.join(out_dir, "transports_timeseries.png"))
     plot_volume_timeseries(res, savepath=os.path.join(out_dir, "volume_timeseries.png"))
+
+    # Save profile evolution as a GIF
+    save_profile_evolution_gif(
+        model,
+        res, 
+        out_gif=os.path.join(out_dir, "profile_evolution.gif"),
+        water_level="auto",   # o "Ru_used" / "TWL_used"
+        every=3,              # 1 = todos los pasos; 3 = 1 frame cada 3 timesteps
+        fps=12,
+        dpi=200,
+        )
 
     # Cs time series
     fig, ax = plt.subplots()
