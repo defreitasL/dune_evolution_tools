@@ -180,8 +180,8 @@ def save_profile_evolution_gif(
     )
 
     # Sand fill + evolving profile + water level
-    sand = ax.fill_between(x_init, z_init, fill_base_val, color="gold", alpha=0.35, zorder=1)
-    prof_line, = ax.plot(x_init, z_init, color="black", linewidth=2.2, zorder=3, label="Profile")
+    sand = ax.fill_between(x_init, z_init, fill_base_val, color="wheat", alpha=1, zorder=1)
+    prof_line, = ax.plot(x_init, z_init, color="black", linewidth=2.2, zorder=3, label="Profile", zorder=2)
 
     # >>> CHANGE: legend label for blue line as TWL
     wl_line, = ax.plot(
@@ -189,7 +189,7 @@ def save_profile_evolution_gif(
         [wl[idx[0]], wl[idx[0]]],
         color="tab:blue",
         linewidth=2.2,
-        zorder=4,
+        zorder=0,
         label="TWL"
     )
 
