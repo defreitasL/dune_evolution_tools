@@ -22,7 +22,7 @@ from dune_evolution_tools.plotting import plot_profiles_over_time, plot_position
 def synthetic_storm(time_s: np.ndarray):
     t_h = time_s / 3600.0
     bump = np.sin(np.clip((t_h / t_h.max()) * np.pi, 0.0, np.pi)) ** 2
-    H0 = 0.5 + 5.0 * bump
+    H0 = 0.5 + 4.0 * bump
     Tp = 8.0 + 10.0 * bump
     return H0, Tp
 
@@ -58,7 +58,7 @@ def main():
 
         z_back=1.5,
         landward_back_slope_m=5.0,
-        landward_back_buffer_m=5.0,
+        landward_back_buffer_m=2.0,
         # storm-only crest lowering
         crest_mode="moving",
         crest_erosion=True,
@@ -79,8 +79,8 @@ def main():
         res, 
         out_gif=os.path.join(out_dir, "profile_evolution.gif"),
         water_level="auto",   # o "Ru_used" / "TWL_used"
-        every=3,              # 1 = todos los pasos; 3 = 1 frame cada 3 timesteps
-        fps=12,
+        every=15,             # 1 = todos los pasos; 3 = 1 frame cada 3 timesteps
+        fps=30,
         dpi=200,
         )
 

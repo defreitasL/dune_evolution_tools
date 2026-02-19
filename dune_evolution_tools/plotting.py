@@ -75,54 +75,14 @@ def save_profile_evolution_gif(
     ylim: Optional[Tuple[float, float]] = None,
     title: str = "Dune profile evolution",
 ):
-    """Create and save a GIF of the evolving dune/beach profile.
-
-    The animation shows:
-      - Water level (Ru or TWL): horizontal blue line
-      - Profile: black polyline
-      - Sand: yellow fill under the profile
-
-    Parameters
-    ----------
-    model : DuneToeStormModel
-        Model instance (used to reconstruct the profile if no mesh is stored).
-    result : dict
-        Output dictionary from `simulate_from_runup`, `simulate_from_twl`, or `simulate_from_waves`.
-        If keys ("x_prof", "z_prof") are present, the mesh profiles are used.
-        Otherwise, the profile is rebuilt from (z0, x0, Ds_ts, tan_beta_D).
-    out_gif : str
-        Path to the GIF file.
-    water_level : {"auto"} or str
-        Which series to plot as water level. If "auto", uses "TWL_used" if present,
-        else uses "Ru_used".
-        You may also pass an explicit key present in `result` (e.g. "Ru_used", "TWL_used").
-    every : int
-        Use one frame every `every` timesteps (e.g., every=5 reduces frames by 5×).
-    fps : int
-        Frames per second.
-    dpi : int
-        DPI for the rendered frames.
-    fill_base : {"auto"} or float
-        Baseline used for the yellow fill. If "auto", it is set below the minimum z
-        (and below the minimum water level).
-    xlim, ylim : tuple or None
-        Axis limits. If None, they are inferred from the data/geometry.
-
-    Notes
-    -----
-    This function uses matplotlib's PillowWriter. If you get an ImportError, install pillow:
-        pip install pillow
-    """
+    """Create and save a GIF of the evolving dune/beach profile."""
     if every < 1:
         raise ValueError("every must be >= 1")
     time_s = np.asarray(result["time_s"], dtype=float)
 
     # --- pick water-level series ---
     if water_level == "auto":
-        if "TWL_used" in result:
-            wl_key = "TWL_used"
-        else:
-            wl_key = "Ru_used"
+        wl_key = "TWL_used" if "TWL_used" in result else "Ru_used"
     else:
         wl_key = str(water_level)
     if wl_key not in result:
@@ -143,7 +103,7 @@ def save_profile_evolution_gif(
         tan_beta_D = float(np.asarray(result.get("tan_beta_D", np.array([np.tan(np.deg2rad(34.0))])))[0])
         tan_beta_f = float(model.params.tan_beta_f)
 
-    # --- axis limits ---
+    # --- axis limits (GLOBAL, no white space in x) ---
     if xlim is None or ylim is None:
         if use_mesh:
             xmin = float(np.nanmin(x_mesh))
@@ -151,13 +111,10 @@ def save_profile_evolution_gif(
             zmin = float(np.nanmin(z_mesh))
             zmax = float(np.nanmax(z_mesh))
         else:
-            # geometry-based bounds without building every polyline
             tan_beta_f = float(model.params.tan_beta_f)
             xmin = float(np.nanmin(x0 - z0 / tan_beta_f - seaward_buffer_m))
-            # landward end: toe + face width + crest + back slope + buffer
             face_w = (Ds_ts - z0) / tan_beta_D
             xmax = float(np.nanmax(x0 + face_w + landward_crest_width_m + landward_back_slope_m + landward_back_buffer_m))
-            # foreshore min elevation at the offshore buffer point:
             zmin = float(-tan_beta_f * seaward_buffer_m)
             zmin = min(zmin, float(z_back))
             zmax = float(np.nanmax(Ds_ts))
@@ -165,18 +122,16 @@ def save_profile_evolution_gif(
         zmin = min(zmin, float(np.nanmin(wl)))
         zmax = max(zmax, float(np.nanmax(wl)))
 
+        # >>> CHANGE: no x padding (to avoid white space)
         if xlim is None:
-            xpad = 0.02 * (xmax - xmin) if xmax > xmin else 1.0
-            xlim = (xmin - xpad, xmax + xpad)
+            xlim = (xmin, xmax)
+
         if ylim is None:
             ypad = 0.08 * (zmax - zmin) if zmax > zmin else 1.0
             ylim = (zmin - ypad, zmax + ypad)
 
     # --- fill baseline ---
-    if fill_base == "auto":
-        fill_base_val = float(ylim[0])  # bottom of axis
-    else:
-        fill_base_val = float(fill_base)
+    fill_base_val = float(ylim[0]) if fill_base == "auto" else float(fill_base)
 
     # --- frame indices ---
     idx = np.arange(0, time_s.size, every, dtype=int)
@@ -197,13 +152,13 @@ def save_profile_evolution_gif(
     ax.set_ylabel("Elevation z (m)")
     ax.set_title(title)
 
-    # placeholders
+    # Build initial profile (pre-storm) once
     if use_mesh:
-        x0_frame = x_mesh
-        z0_frame = z_mesh[idx[0]]
+        x_init = x_mesh
+        z_init = z_mesh[idx[0]]
     else:
         Ds0 = float(Ds_ts[idx[0]])
-        x0_frame, z0_frame = model.build_profile_xy(
+        x_init, z_init = model.build_profile_xy(
             float(z0[idx[0]]), float(x0[idx[0]]), Ds0,
             float(model.params.tan_beta_f), tan_beta_D,
             seaward_buffer_m=seaward_buffer_m,
@@ -214,10 +169,32 @@ def save_profile_evolution_gif(
             tan_beta_back=tan_beta_back,
         )
 
-    # Sand fill + profile + water level
-    sand = ax.fill_between(x0_frame, z0_frame, fill_base_val, color="gold", alpha=0.35, zorder=1)
-    prof_line, = ax.plot(x0_frame, z0_frame, color="black", linewidth=2.0, zorder=3)
-    wl_line, = ax.plot([xlim[0], xlim[1]], [wl[idx[0]], wl[idx[0]]], color="tab:blue", linewidth=2.0, zorder=2)
+    # >>> CHANGE: pre-storm profile persistent dashed light-gray line
+    pre_line, = ax.plot(
+        x_init, z_init,
+        linestyle="--",
+        color="lightgray",
+        linewidth=2.0,
+        zorder=2,
+        label="Pre-storm"
+    )
+
+    # Sand fill + evolving profile + water level
+    sand = ax.fill_between(x_init, z_init, fill_base_val, color="gold", alpha=0.35, zorder=1)
+    prof_line, = ax.plot(x_init, z_init, color="black", linewidth=2.2, zorder=3, label="Profile")
+
+    # >>> CHANGE: legend label for blue line as TWL
+    wl_line, = ax.plot(
+        [xlim[0], xlim[1]],
+        [wl[idx[0]], wl[idx[0]]],
+        color="tab:blue",
+        linewidth=2.2,
+        zorder=4,
+        label="TWL"
+    )
+
+    # Legend (includes TWL + others; if you want ONLY TWL, I can simplify)
+    ax.legend(loc="upper right", frameon=True)
 
     # Time label on the top (axes coordinates)
     time_text = ax.text(
@@ -249,7 +226,7 @@ def save_profile_evolution_gif(
         ii = idx[k]
         x_i, z_i = _frame_profile(k)
 
-        # update profile line
+        # update evolving profile line
         prof_line.set_data(x_i, z_i)
 
         # update water line
@@ -263,7 +240,7 @@ def save_profile_evolution_gif(
         # update time text
         time_text.set_text(f"t = {time_s[ii]/3600.0:.2f} h")
 
-        return prof_line, wl_line, sand, time_text
+        return prof_line, wl_line, sand, time_text, pre_line
 
     ani = animation.FuncAnimation(
         fig,
@@ -277,7 +254,6 @@ def save_profile_evolution_gif(
     ani.save(out_gif, writer=writer, dpi=int(dpi))
     plt.close(fig)
     return out_gif
-
 
 def plot_positions(result: Dict[str, np.ndarray], savepath: Optional[str] = None):
     th = result["time_s"] / 3600.0
