@@ -75,4 +75,4 @@ Desktop.ini
 site/
 
 # Legacy files
-./_legacy
+_legacy/
