@@ -73,3 +73,6 @@ Desktop.ini
 
 # Static site output
 site/
+
+# Legacy files
+./_legacy

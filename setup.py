@@ -3,19 +3,19 @@ from pathlib import Path
 
 THIS_DIR = Path(__file__).parent
 
-# Optional: use README as long description (nice for PyPI / pip metadata)
+
 readme_path = THIS_DIR / "README.md"
 long_description = readme_path.read_text(encoding="utf-8") if readme_path.exists() else ""
 
 setup(
     name="dune_evolution_tools",
-    version="0.1.7",  # <-- update when you bump versions
+    version="0.1.8",      
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
         "numpy",
         "matplotlib",
-        "numba",  # core is faster with numba;
+        "numba",  
     ],
     python_requires=">=3.9",
     author="Lucas de Freitas Pereira",

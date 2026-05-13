@@ -302,3 +302,71 @@ print(clo["max_abs_residual"], clo["rel_max_abs_residual"])
 **Lucas de Freitas Pereira**  
 IHCantabria — Environmental Hydraulics Institute of Cantabria (Spain)  
 📧 lucas.defreitas@unican.es
+
+## Running the model directly from `dune_params` parquet outputs
+
+The package now includes a bridge module that starts from the final `.parquet`
+created by `dune_params`. This path does **not** run dune detection again: it
+uses the existing columns from the parquet (`d`, `z_corregido`, smoothed
+`toe/crest/heel`, dune polygon limits, `dist_lnero`, etc.) and only performs the
+model mesh construction, storm simulation and transfer back to the full real
+profile.
+
+```python
+import numpy as np
+from dune_evolution_tools import DuneToeStormParams
+from dune_evolution_tools.dune_params_workflow import (
+    simulate_dune_profile_from_dune_params_parquet,
+    run_dune_model_from_dune_params_parquet,
+)
+
+# Example forcing
+TWL = twl_series                      # same vertical datum as z_corregido
+Hs0 = hs0_series                      # optional Hs0/H0 series used by Cs/runup modes
+time_s = np.arange(len(TWL)) * 3600.0 # hourly forcing if your series is hourly
+
+base_params = DuneToeStormParams(
+    Ds=5.0,                 # overwritten from detected crest geometry
+    z0_init=3.0,            # overwritten from detected toe geometry
+    tan_beta_f=0.05,        # overwritten from the observed beachface
+    Cs=1.8e-3,
+    A_overwash=3.0,
+    crest_erosion=True,
+    k_crest=0.7,
+    crest_width_m=10.0,
+    use_profile_mesh=False,
+)
+
+# Single profile: returns exactly the complete final vectors and the seaward volume
+# V_to_beach is ∫qS dt [m² per metre alongshore].
+d_final, z_final, V_to_beach = simulate_dune_profile_from_dune_params_parquet(
+    "cantabria_dune_parameters.parquet",
+    profile_id=570,
+    time_s=time_s,
+    TWL=TWL,
+    Hs0=Hs0,
+    T=11.0,
+    base_params=base_params,
+)
+
+# Batch mode: returns the input GeoDataFrame plus model outputs and can save parquet.
+out = run_dune_model_from_dune_params_parquet(
+    "cantabria_dune_parameters.parquet",
+    time_s=time_s,
+    TWL=TWL,
+    Hs0=Hs0,
+    T=11.0,
+    base_params=base_params,
+    output_path="cantabria_dune_model_outputs.parquet",
+)
+```
+
+Main output columns in batch mode:
+
+- `d_dune_eroded`, `z_dune_eroded`: complete final profile arrays on the original
+  real-profile `d` mesh.
+- `volume_eroded_to_beach_m2`: seaward-directed eroded volume, computed as
+  `∫ qS dt` from the model flux partition.
+- `volume_eroded_total_m2` and `volume_overwashed_landward_m2`: diagnostic total
+  and landward/overwash partitions.
+- `dune_model_status`, `dune_model_message`: profile-level status and failure/skipping reason.

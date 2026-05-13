@@ -7,5 +7,22 @@ Main entry:
 """
 from .params import DuneToeStormParams, CsMode, CrestMode
 from .model import DuneToeStormModel
+from .dune_params_workflow import (
+    DuneParamsModelConfig,
+    DuneParamsProfileOutput,
+    simulate_dune_profile_from_dune_params_row,
+    simulate_dune_profile_from_dune_params_parquet,
+    run_dune_model_from_dune_params_parquet,
+)
 
-__all__ = ["DuneToeStormParams", "DuneToeStormModel", "CsMode", "CrestMode"]
+__all__ = [
+    "DuneToeStormParams",
+    "DuneToeStormModel",
+    "CsMode",
+    "CrestMode",
+    "DuneParamsModelConfig",
+    "DuneParamsProfileOutput",
+    "simulate_dune_profile_from_dune_params_row",
+    "simulate_dune_profile_from_dune_params_parquet",
+    "run_dune_model_from_dune_params_parquet",
+]
